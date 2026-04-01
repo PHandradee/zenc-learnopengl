@@ -1,0 +1,45 @@
+//> include: ./libs/sdl3/x86_64-w64-mingw32/include
+//> lib: ./libs/sdl3/x86_64-w64-mingw32/lib
+//> link: -lSDL3
+// shell: copy /Y .\libs\sdl3\x86_64-w64-mingw32\bin\*.dll .\build\
+
+import "SDL3/SDL.h" as sdl;
+
+def WIDTH: int = 640;
+def HEIGHT: int = 480;
+
+fn main() -> int {
+    let done: bool = false;
+
+    sdl::SDL_Init(sdl::SDL_INIT_VIDEO);
+    defer sdl::SDL_Quit();
+
+    let window = sdl::SDL_CreateWindow(
+        "An SDL3 window",
+        WIDTH,
+        HEIGHT,
+        sdl::SDL_WINDOW_OPENGL
+    );
+    defer sdl::SDL_DestroyWindow(window);
+
+    if window == NULL {
+        sdl::SDL_LogError(
+            sdl::SDL_LOG_CATEGORY_ERROR,
+            "Could not create window: %s\n",
+            sdl::SDL_GetError()
+        );
+        return 1;
+    }
+
+    while !done {
+        let event: sdl::SDL_Event;
+        while sdl::SDL_PollEvent(&event) != 0 {
+            if event.type == sdl::SDL_EVENT_QUIT {
+                done = true;
+            }
+        }
+    }
+
+
+    return 0;
+}
