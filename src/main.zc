@@ -1,5 +1,5 @@
-//> include: ./libs/sdl3/x86_64-w64-mingw32/include ./libs/glad/include ./libs/glfw/include
-//> lib: ./libs/sdl3/x86_64-w64-mingw32/lib ./libs/glfw/lib 
+//> include: ./libs/glad/include ./libs/glfw/include
+//> lib: ./libs/glfw/lib 
 //> link: ./libs/glad/src/glad.c -lglfw3 -lopengl32 -lgdi32 -luser32 -lkernel32 -lshell32
 // shell: copy /Y .\libs\sdl3\x86_64-w64-mingw32\bin\*.dll .\build\
 
