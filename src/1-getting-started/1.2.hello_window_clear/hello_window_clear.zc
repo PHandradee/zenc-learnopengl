@@ -1,0 +1,72 @@
+import "glad/glad.h" as glad;
+import "GLFW/glfw3.h" as glfw;
+
+// settings
+def SCREEN_WIDTH: uint = 800;
+def SCREEN_HEIGHT: uint = 600;
+
+// forward declarations
+fn framebuffer_size_callback(window: glfw::GLFWwindow*, width: int, height: int);
+fn process_input(window: glfw::GLFWwindow*);
+
+fn _main() -> int {
+    // glfw: initialize and configure
+    glfw::glfwInit();
+    defer glfw::glfwTerminate();
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_OPENGL_PROFILE, glfw::GLFW_OPENGL_CORE_PROFILE);
+
+    // glfw window creation
+    let window = glfw::glfwCreateWindow(
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        "LearnOpenGL",
+        NULL,
+        NULL
+    );
+
+    if window == NULL {
+        eprintln "Failed to create GLFW window";
+        return -1;
+    }
+
+    glfw::glfwMakeContextCurrent(window);
+    glfw::glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    // glad: load all OpenGL function pointers
+    if glad::gladLoadGLLoader((glad::GLADloadproc)glfw::glfwGetProcAddress) == 0 {
+        eprintln "Failed to initialize GLAD";
+        return -1;
+    }
+
+    // render loop
+    while glfw::glfwWindowShouldClose(window) == 0 {
+        // input
+        process_input(window);
+
+        // render
+        glad::glClearColor(0.2f,0.3f,0.3f,1.0f);
+        glad::glClear(glad::GL_COLOR_BUFFER_BIT);
+
+        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        glfw::glfwSwapBuffers(window);
+        glfw::glfwPollEvents();
+    }
+
+    return 0;
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+fn process_input(window: glfw::GLFWwindow*) {
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_ESCAPE) == glfw::GLFW_PRESS {
+        glfw::glfwSetWindowShouldClose(window, true);
+    }
+}
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+fn framebuffer_size_callback(_window: glfw::GLFWwindow*, width: int, height: int) {
+    // make sure the viewport matches the new window dimensions; note that width and 
+    // height will be significantly larger than specified on retina displays.
+    glad::glViewport(0, 0, width, height);
+}
