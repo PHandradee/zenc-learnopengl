@@ -1,0 +1,254 @@
+import "glad/glad.h" as glad;
+import "GLFW/glfw3.h" as glfw;
+
+// settings
+def SCREEN_WIDTH: uint = 800;
+def SCREEN_HEIGHT: uint = 600;
+
+// forward declarations
+fn framebuffer_size_callback(window: glfw::GLFWwindow*, width: int, height: int);
+fn process_input(window: glfw::GLFWwindow*);
+
+fn _main() -> int {
+    println "[1] CPU: Program start";
+    // Entry point of the application (runs on CPU)
+
+    let vertex_shader_source: const char* = """
+    #version 330 core
+    layout (location = 0) in vec3 aPos;
+    void main()
+    {{ 
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0); 
+    }};""";
+
+    let fragment_shader_source: const char*  = """
+    #version 330 core 
+    out vec4 FragColor; 
+    void main() {{ 
+    FragColor = vec4(1.0f,0.5f,0.2f,1.0f);
+    }}; """;
+
+    
+    // =========================
+    // CPU → CONTEXT SETUP
+    // =========================
+
+    println "[2] CPU: Initializing GLFW";
+    // Initializes the window system and prepares OpenGL usage
+    glfw::glfwInit();
+    defer glfw::glfwTerminate();
+
+    println "[3] CPU: Configuring OpenGL context (3.3 core)";
+    // Tells GLFW which OpenGL version we want to use
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_OPENGL_PROFILE, glfw::GLFW_OPENGL_CORE_PROFILE);
+
+    println "[4] CPU: Creating window + OpenGL context";
+    // Creates a window AND an OpenGL context attached to it
+    let window = glfw::glfwCreateWindow(
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        "LearnOpenGL",
+        NULL,
+        NULL
+    );
+
+    if window == NULL {
+        eprintln "Failed to create GLFW window";
+        return -1;
+    }
+
+    println "[5] CPU: Making context current";
+    // Makes this window's OpenGL context the active one on this thread
+    glfw::glfwMakeContextCurrent(window);
+
+    // Registers a callback that updates the viewport when window resizes
+    glfw::glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    println "[6] CPU → DRIVER: Loading OpenGL functions (GLAD)";
+    // GLAD loads function pointers for OpenGL (because OpenGL is driver-dependent)
+    if glad::gladLoadGLLoader((glad::GLADloadproc)glfw::glfwGetProcAddress) == 0 {
+        eprintln "Failed to initialize GLAD";
+        return -1;
+    }
+
+    // =========================
+    // SHADER PIPELINE (GPU SETUP)
+    // =========================
+
+    println "[7] CPU → GPU: Creating vertex shader object";
+    // Ask GPU to allocate a vertex shader object
+    let vertex_shader: uint = glad::glCreateShader(glad::GL_VERTEX_SHADER);
+    defer glad::glDeleteShader(vertex_shader);
+
+    println "[8] CPU → GPU: Uploading vertex shader source";
+    // Send shader source code (string) from CPU to GPU
+    glad::glShaderSource(vertex_shader, 1, &vertex_shader_source, NULL);
+
+    println "[9] GPU: Compiling vertex shader";
+    // GPU compiles GLSL into something it can execute
+    glad::glCompileShader(vertex_shader);
+
+    let sucess: int;
+    let info_log: char[512];
+    glad::glGetShaderiv(vertex_shader, glad::GL_COMPILE_STATUS, &sucess);
+    if !sucess {
+        glad::glGetShaderInfoLog(vertex_shader, 512, NULL, info_log);
+        println "ERROR::VERTEX_SHADER {info_log}";
+    } else {
+        println "[10] GPU: Vertex shader compiled";
+        // Vertex shader is now ready to run per-vertex
+    }
+
+    println "[11] CPU → GPU: Creating fragment shader object";
+    // Same idea but for fragments (pixels)
+    let fragment_shader: uint = glad::glCreateShader(glad::GL_FRAGMENT_SHADER);
+    defer glad::glDeleteShader(fragment_shader);
+
+    println "[12] CPU → GPU: Uploading fragment shader source";
+    glad::glShaderSource(fragment_shader, 1, &fragment_shader_source, NULL);
+
+    println "[13] GPU: Compiling fragment shader";
+    glad::glCompileShader(fragment_shader);
+
+    glad::glGetShaderiv(fragment_shader, glad::GL_COMPILE_STATUS, &sucess);
+    if !sucess {
+        glad::glGetShaderInfoLog(fragment_shader,512,NULL,info_log);
+        println "ERROR::FRAGMENT_SHADER {info_log}";
+    } else {
+        println "[14] GPU: Fragment shader compiled";
+        // Fragment shader will run per-pixel later
+    }
+
+    println "[15] CPU → GPU: Linking shader program";
+    // Combine vertex + fragment shaders into a complete GPU pipeline program
+    let shader_program: uint = glad::glCreateProgram();
+    defer glad::glDeleteProgram(shader_program);
+
+    glad::glAttachShader(shader_program, vertex_shader);
+    glad::glAttachShader(shader_program, fragment_shader);
+    glad::glLinkProgram(shader_program);
+
+    glad::glGetProgramiv(shader_program, GL_LINK_STATUS, &sucess);
+    if !sucess {
+        glad::glGetProgramInfoLog(shader_program, 512, NULL, info_log);
+        println "ERROR::PROGRAM_LINK {info_log}";
+    } else {
+        println "[16] GPU: Shader program ready (Vertex + Fragment linked)";
+        // This is what the GPU will actually execute during rendering
+    }
+    
+
+    // =========================
+    // INPUT ASSEMBLER (GEOMETRY)
+    // =========================
+
+    println "[17] CPU: Defining vertex + index data";
+    // Define geometry on CPU (positions of points)
+
+    let vertices: const f32[12] = [
+         0.5f,  0.5f, 0.0f,
+         0.5f, -0.5f, 0.0f,
+        -0.5f, -0.5f, 0.0f,
+        -0.5f,  0.5f, 0.0f
+    ];
+
+    let indices: const uint[6] = [
+        0,1,3,
+        1,2,3
+    ];
+
+    let VBO: uint;
+    defer glad::glDeleteBuffers(1, &VBO);
+    let VAO: uint;
+    defer glad::glDeleteVertexArrays(1, &VAO);
+    let EBO: uint;
+    defer glad::glDeleteBuffers(1, &EBO);
+
+    println "[18] CPU → GPU: Creating buffers (VAO, VBO, EBO)";
+    // Ask GPU to allocate memory for vertex data
+    glad::glGenVertexArrays(1,&VAO);
+    glad::glGenBuffers(1,&VBO);
+    glad::glGenBuffers(1, &EBO);
+
+    println "[19] INPUT ASSEMBLER: Binding VAO (captures state)";
+    // VAO stores how vertex data is configured
+    glad::glBindVertexArray(VAO);
+
+    println "[20] INPUT ASSEMBLER: Uploading vertex buffer (VBO)";
+    // Send vertex data to GPU memory
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, VBO);
+    glad::glBufferData(glad::GL_ARRAY_BUFFER, sizeof(vertices),vertices,glad::GL_STATIC_DRAW);
+    
+    println "[21] INPUT ASSEMBLER: Uploading index buffer (EBO)";
+    // Send index data (how vertices form triangles)
+    glad::glBindBuffer(glad::GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glad::glBufferData(glad::GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, glad::GL_STATIC_DRAW);
+    
+    println "[22] INPUT ASSEMBLER: Defining vertex layout (attribute 0)";
+    // Tell GPU how to interpret the raw vertex data
+    glad::glVertexAttribPointer(0, 3, glad::GL_FLOAT, glad::GL_FALSE, 3 * sizeof(float), (void*)0);
+    glad::glEnableVertexAttribArray(0);
+
+    println "[23] CPU: Unbinding VBO";
+    // Safe to unbind because VAO already stored the configuration
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, 0); 
+
+    println "[24] CPU: Unbinding VAO";
+    glad::glBindVertexArray(0); 
+
+    println "[25] RASTERIZER CONFIG: Wireframe mode enabled";
+    // Instead of filled triangles, draw only edges (useful for debugging)
+    glad::glPolygonMode(glad::GL_FRONT_AND_BACK, glad::GL_LINE);
+
+    println "[26] Setup complete → entering render loop";
+    // From now on, we repeatedly draw frames
+
+    // render loop
+    while glfw::glfwWindowShouldClose(window) == 0 {
+        process_input(window);
+
+        glad::glClearColor(0.2f,0.3f,0.3f,1.0f);
+        glad::glClear(glad::GL_COLOR_BUFFER_BIT);
+
+        // =========================
+        // GPU PIPELINE EXECUTION
+        // =========================
+
+        // [27] Select shader program (GPU will use it)
+        glad::glUseProgram(shader_program);
+
+        // [28] Bind geometry (VAO)
+        glad::glBindVertexArray(VAO);
+
+        // [29] DRAW CALL:
+        // This is where everything happens inside the GPU:
+        // 1. Vertex Shader runs (per vertex)
+        // 2. Triangles are assembled
+        // 3. Rasterization converts them to fragments (pixels)
+        // 4. Fragment Shader runs (per pixel)
+        glad::glDrawElements(glad::GL_TRIANGLES,6,glad::GL_UNSIGNED_INT,0);
+        
+        glfw::glfwSwapBuffers(window);
+        glfw::glfwPollEvents();
+    }
+
+    println "[30] CPU: Program terminated";
+    return 0;
+}
+
+// input
+fn process_input(window: glfw::GLFWwindow*) {
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_ESCAPE) == glfw::GLFW_PRESS {
+        println "[INPUT] ESC pressed → closing window";
+        glfw::glfwSetWindowShouldClose(window, true);
+    }
+}
+
+// resize callback
+fn framebuffer_size_callback(_window: glfw::GLFWwindow*, width: int, height: int) {
+    println "[CALLBACK] Viewport updated";
+    // Updates the drawable area of the window
+    glad::glViewport(0, 0, width, height);
+}
