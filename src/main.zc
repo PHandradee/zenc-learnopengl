@@ -5,7 +5,8 @@
 
 //import "./1-getting-started/1.2.hello_window_clear/hello_window_clear.zc";
 //import "./1-getting-started/2.1.hello_triangle/hello_triangle.zc";
-import "./1-getting-started/2.2.hello_triangle_indexed/hello_triangle_indexed.zc"
+//import "./1-getting-started/2.2.hello_triangle_indexed/hello_triangle_indexed.zc";
+import "./1-getting-started/2.3.hello_triangle_exercise1/hello_triangle_exercise1.zc"
 
 fn main() {
     _main();
