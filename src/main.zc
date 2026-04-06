@@ -9,7 +9,8 @@
 //import "./1-getting-started/2.3.hello_triangle_exercise1/hello_triangle_exercise1.zc"
 //import "./1-getting-started/2.4.hello_triangle_exercise2/hello_triangle_exercise2.zc"
 //import "./1-getting-started/2.5.hello_triangle_exercise3/hello_triangle_exercise3.zc"
-import "./1-getting-started/3.1.shaders_uniform/shaders_uniform.zc"
+//import "./1-getting-started/3.1.shaders_uniform/shaders_uniform.zc"
+import "./1-getting-started/3.2.shaders_interpolation/shaders_interpolation.zc"
 
 fn main() {
     _main();
