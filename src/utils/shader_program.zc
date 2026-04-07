@@ -1,0 +1,142 @@
+import "glad/glad.h" as glad;
+import "std/fs.zc";
+import "std/result.zc";
+import "std/string.zc";
+
+struct ShaderProgram {
+    ID: uint;
+}
+
+impl ShaderProgram {
+
+    fn new(vertexPath: char*, fragmentPath: char*) -> Result<ShaderProgram> {
+        println "Vertex path: {vertexPath}";
+        println "Fragment path: {fragmentPath}";
+        // Ler os arquivos
+        let vertexCode: String;
+        match File::read_all(vertexPath) {
+            Ok(code) => vertexCode = code,
+            Err(msg) => {
+                println "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: {msg}";
+                return Result<ShaderProgram>::Err("Failed to read vertex shader");
+            }
+        };
+
+        let fragmentCode: String;
+        match File::read_all(fragmentPath) {
+            Ok(code) => fragmentCode = code,
+            Err(msg) => {
+                println "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: {msg}";
+                return Result<ShaderProgram>::Err("Failed to read fragment shader");
+            }
+        };
+
+        let vertex: uint;
+        match ShaderProgram::compile_shader(vertexCode.c_str(), glad::GL_VERTEX_SHADER, "VERTEX") {
+            Ok(v) => vertex = v,
+            Err(msg) => return Result<ShaderProgram>::Err(msg)
+        };
+
+        let fragment: uint;
+        match ShaderProgram::compile_shader(fragmentCode.c_str(), glad::GL_FRAGMENT_SHADER, "FRAGMENT") {
+            Ok(f) => fragment = f,
+            Err(msg) => return Result<ShaderProgram>::Err(msg)
+        };
+
+        let program = glad::glCreateProgram();
+        glad::glAttachShader(program, vertex);
+        glad::glAttachShader(program, fragment);
+        glad::glLinkProgram(program);
+
+        match ShaderProgram::check_compile_errors(program, "PROGRAM") {
+            Err(msg) => {
+                glad::glDeleteShader(vertex);
+                glad::glDeleteShader(fragment);
+                return Result<ShaderProgram>::Err(msg);
+            }
+            _ => {}
+        };
+
+        glad::glDeleteShader(vertex);
+        glad::glDeleteShader(fragment);
+
+        return Result<ShaderProgram>::Ok(ShaderProgram::newId(program));
+    }
+
+    fn compile_shader(source: const char*, glType: uint, typeStr: char*) -> Result<uint> {
+        let shader: uint = glad::glCreateShader(glType);
+
+        glad::glShaderSource(shader, 1, &source, NULL);
+        glad::glCompileShader(shader);
+
+        match ShaderProgram::check_compile_errors(shader, typeStr) {
+            Err(msg) => {
+                println "{msg}";
+                glad::glDeleteShader(shader);
+                return Result<uint>::Err(msg);
+            }
+            _ => {}
+        };
+
+        return Result<uint>::Ok(shader);
+    }
+
+    fn check_compile_errors(object: uint, typeStr: char*) -> Result<string> {
+        let success: int = 0;
+        let infoLog: char[1024];
+
+        if (strcmp(typeStr, "PROGRAM") != 0) {
+            glad::glGetShaderiv(object, glad::GL_COMPILE_STATUS, &success);
+            if (success == 0) {
+                glad::glGetShaderInfoLog(object, 1024, NULL, infoLog);
+                
+                let msg = String::from("ERROR::SHADER_COMPILATION_ERROR of type: ");
+                msg.append_c(typeStr);
+                msg.append_c("\n");
+                msg.append_c(infoLog);
+                return Result<string>::Err(msg.c_str());
+            }
+        } else {
+            glad::glGetProgramiv(object, glad::GL_LINK_STATUS, &success);
+            if (success == 0) {
+                glad::glGetProgramInfoLog(object, 1024, NULL, infoLog);
+                
+                let msg = String::from("ERROR::PROGRAM_LINKING_ERROR of type: ");
+                msg.append_c(typeStr);
+                msg.append_c("\n");
+                msg.append_c(infoLog);
+                return Result<string>::Err(msg.c_str());
+            }
+        }
+        return Result<string>::Ok("ok");
+    }
+
+    fn newId(id: uint) -> Self {
+        return ShaderProgram { ID: id };
+    }
+
+    fn useProgram(self) {
+        glad::glUseProgram(self.ID);
+    }
+
+    fn setBool(self, name: char*, value: bool) {
+        glad::glUniform1i(glad::glGetUniformLocation(self.ID, name), value);
+    }
+
+    fn setInt(self, name: char*, value: int) {
+        glad::glUniform1i(glad::glGetUniformLocation(self.ID, name), value);
+    }
+
+    fn setFloat(self, name: char*, value: float) {
+        glad::glUniform1f(glad::glGetUniformLocation(self.ID, name), value);
+    }
+}
+
+// RAII
+impl Drop for ShaderProgram {
+    fn drop(self) {
+        if (self.ID != 0) {
+            glad::glDeleteProgram(self.ID);
+        }
+    }
+}
