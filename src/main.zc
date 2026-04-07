@@ -12,7 +12,8 @@
 //import "./1-getting-started/3.1.shaders_uniform/shaders_uniform.zc"
 //import "./1-getting-started/3.2.shaders_interpolation/shaders_interpolation.zc"
 //import "./1-getting-started/3.3.shaders_class/shaders_class.zc"
-import "./1-getting-started/3.3.shaders_class/shaders_class.zc"
+//import "./1-getting-started/3.4.shaders_exercise1/shaders_class_exercise1.zc"
+import "./1-getting-started/3.5.shaders_exercise2/shaders_class_exercise2.zc"
 
 
 fn main() {
