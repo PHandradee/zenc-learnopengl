@@ -1,0 +1,120 @@
+import "glad/glad.h" as glad;
+import "GLFW/glfw3.h" as glfw;
+import "std/math.zc";
+import "../../utils/shader_program.zc";
+
+
+// settings
+def SCREEN_WIDTH: uint = 800;
+def SCREEN_HEIGHT: uint = 600;
+
+// forward declarations
+fn framebuffer_size_callback(window: glfw::GLFWwindow*, width: int, height: int);
+fn process_input(window: glfw::GLFWwindow*);
+
+fn _main() -> int {
+
+    // glfw: initialize and configure
+    glfw::glfwInit();
+    defer glfw::glfwTerminate();
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_OPENGL_PROFILE, glfw::GLFW_OPENGL_CORE_PROFILE);
+
+    // glfw window creation
+    let window = glfw::glfwCreateWindow(
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        "LearnOpenGL",
+        NULL,
+        NULL
+    );
+
+    if window == NULL {
+        eprintln "Failed to create GLFW window";
+        return -1;
+    }
+
+    glfw::glfwMakeContextCurrent(window);
+    glfw::glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    // glad: load all OpenGL function pointers
+    if glad::gladLoadGLLoader((glad::GLADloadproc)glfw::glfwGetProcAddress) == 0 {
+        eprintln "Failed to initialize GLAD";
+        return -1;
+    }
+
+    // build and compile our shader program
+    // ------------------------------------
+    // vertex shader
+    let our_shader = ShaderProgram::new("./shaders/3.6.shaders_exercise3/3.6.shader.vs","./shaders/3.6.shaders_exercise3/3.6.shader.fs").unwrap();
+    
+
+    let vertices: const f32[18] = [
+        -0.5f, -0.5f, 0.0f, 1.0f,0.0f,0.0f,
+         0.5f, -0.5f, 0.0f, 0.0f,1.0f,0.0f,
+         0.0f,  0.5f, 0.0f, 0.0f,0.0f,1.0f,      
+    ];
+
+    let VBO: uint;
+    defer glad::glDeleteBuffers(1, &VBO);
+    let VAO: uint;
+    defer glad::glDeleteVertexArrays(1, &VAO);
+    glad::glGenVertexArrays(1,&VAO);
+    glad::glGenBuffers(1,&VBO);
+    glad::glBindVertexArray(VAO);
+
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, VBO);
+    glad::glBufferData(glad::GL_ARRAY_BUFFER, sizeof(vertices),vertices,glad::GL_STATIC_DRAW);
+
+    // position attribute
+    glad::glVertexAttribPointer(0, 3, glad::GL_FLOAT, glad::GL_FALSE, 6 * sizeof(f32), (void*)0);
+    glad::glEnableVertexAttribArray(0);
+
+    // color attribute
+    glad::glVertexAttribPointer(1,3,glad::GL_FLOAT, glad::GL_FALSE,6 * sizeof(f32),(void*)(3*sizeof(f32)));
+    glad::glEnableVertexAttribArray(1);
+
+    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, 0); 
+
+    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+    glad::glBindVertexArray(0); 
+
+    // render loop
+    while glfw::glfwWindowShouldClose(window) == 0 {
+        // input
+        process_input(window);
+
+        // render
+        glad::glClearColor(0.2f,0.3f,0.3f,1.0f);
+        glad::glClear(glad::GL_COLOR_BUFFER_BIT);
+
+        our_shader.useProgram();
+
+        glad::glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+        glad::glDrawArrays(glad::GL_TRIANGLES, 0, 3);
+
+        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        glfw::glfwSwapBuffers(window);
+        glfw::glfwPollEvents();
+    }
+
+
+    return 0;
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+fn process_input(window: glfw::GLFWwindow*) {
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_ESCAPE) == glfw::GLFW_PRESS {
+        glfw::glfwSetWindowShouldClose(window, true);
+    }
+}
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+fn framebuffer_size_callback(_window: glfw::GLFWwindow*, width: int, height: int) {
+    // make sure the viewport matches the new window dimensions; note that width and 
+    // height will be significantly larger than specified on retina displays.
+    glad::glViewport(0, 0, width, height);
+}
