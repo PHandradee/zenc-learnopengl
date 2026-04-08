@@ -1,6 +1,6 @@
-//> include: ./libs/glad/include ./libs/glfw/include
+//> include: ./libs/glad/include ./libs/glfw/include ./libs/stb_image
 //> lib: ./libs/glfw/lib 
-//> link: ./libs/glad/src/glad.c -lglfw3 -lopengl32 -lgdi32 -luser32 -lkernel32 -lshell32 -o build/app.exe
+//> link: ./libs/glad/src/glad.c -lglfw3 ./libs/stb_image/stb_image.c -lopengl32 -lgdi32 -luser32 -lkernel32 -lshell32 -o build/app.exe
 // shell: copy /Y .\libs\sdl3\x86_64-w64-mingw32\bin\*.dll .\build\
 
 //import "./1-getting-started/1.2.hello_window_clear/hello_window_clear.zc";
@@ -14,7 +14,9 @@
 //import "./1-getting-started/3.3.shaders_class/shaders_class.zc"
 //import "./1-getting-started/3.4.shaders_exercise1/shaders_class_exercise1.zc"
 //import "./1-getting-started/3.5.shaders_exercise2/shaders_class_exercise2.zc"
-import "./1-getting-started/3.6.shaders_exercise3/shaders_class_exercise3.zc"
+//import "./1-getting-started/3.6.shaders_exercise3/shaders_class_exercise3.zc"
+import "./1-getting-started/4.1.textures/textures.zc"
+
 
 fn main() {
     _main();
