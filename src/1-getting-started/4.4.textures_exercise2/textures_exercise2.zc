@@ -1,0 +1,269 @@
+import "glad/glad.h" as glad;
+import "GLFW/glfw3.h" as glfw;
+import "../../utils/shader_program.zc";
+import "stb_image.h" as stb;
+
+// settings
+def SCREEN_WIDTH: uint = 800;
+def SCREEN_HEIGHT: uint = 600;
+
+// forward declarations
+fn framebuffer_size_callback(window: glfw::GLFWwindow*, width: int, height: int);
+fn process_input(window: glfw::GLFWwindow*);
+
+fn _main() -> int {
+    println "[1] CPU: Program start";
+    // Entry point of the application (runs on CPU)
+
+    
+    // =========================
+    // CPU → CONTEXT SETUP
+    // =========================
+
+    println "[2] CPU: Initializing GLFW";
+    // Initializes the window system and prepares OpenGL usage
+    glfw::glfwInit();
+    defer glfw::glfwTerminate();
+
+    println "[3] CPU: Configuring OpenGL context (3.3 core)";
+    // Tells GLFW which OpenGL version we want to use
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_OPENGL_PROFILE, glfw::GLFW_OPENGL_CORE_PROFILE);
+
+    println "[4] CPU: Creating window + OpenGL context";
+    // Creates a window AND an OpenGL context attached to it
+    let window = glfw::glfwCreateWindow(
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        "LearnOpenGL",
+        NULL,
+        NULL
+    );
+
+    if window == NULL {
+        eprintln "Failed to create GLFW window";
+        return -1;
+    }
+
+    println "[5] CPU: Making context current";
+    // Makes this window's OpenGL context the active one on this thread
+    glfw::glfwMakeContextCurrent(window);
+
+    // Registers a callback that updates the viewport when window resizes
+    glfw::glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    println "[6] CPU → DRIVER: Loading OpenGL functions (GLAD)";
+    // GLAD loads function pointers for OpenGL (because OpenGL is driver-dependent)
+    if glad::gladLoadGLLoader((glad::GLADloadproc)glfw::glfwGetProcAddress) == 0 {
+        eprintln "Failed to initialize GLAD";
+        return -1;
+    }
+
+    let our_shader = ShaderProgram::new("./shaders/4.4.textures_exercise2/4.4.shader.vs","./shaders/4.4.textures_exercise2/4.4.shader.fs").unwrap();
+    
+
+    // =========================
+    // INPUT ASSEMBLER (GEOMETRY)
+    // =========================
+
+    println "[17] CPU: Defining vertex + index data";
+    // Define geometry on CPU (positions of points)
+
+    let vertices: const f32[32] = [
+        // positions          // colors           // texture coords
+         0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   2.0f, 2.0f, // top right
+         0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   2.0f, 0.0f, // bottom right
+        -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // bottom left
+        -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 2.0f  // top left 
+    ];
+
+    let indices: const uint[6] = [
+        0,1,3,
+        1,2,3
+    ];
+
+    let VBO: uint;
+    defer glad::glDeleteBuffers(1, &VBO);
+    let VAO: uint;
+    defer glad::glDeleteVertexArrays(1, &VAO);
+    let EBO: uint;
+    defer glad::glDeleteBuffers(1, &EBO);
+
+    println "[18] CPU → GPU: Creating buffers (VAO, VBO, EBO)";
+    // Ask GPU to allocate memory for vertex data
+    glad::glGenVertexArrays(1,&VAO);
+    glad::glGenBuffers(1,&VBO);
+    glad::glGenBuffers(1, &EBO);
+
+    println "[19] INPUT ASSEMBLER: Binding VAO (captures state)";
+    // VAO stores how vertex data is configured
+    glad::glBindVertexArray(VAO);
+
+    println "[20] INPUT ASSEMBLER: Uploading vertex buffer (VBO)";
+    // Send vertex data to GPU memory
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, VBO);
+    glad::glBufferData(glad::GL_ARRAY_BUFFER, sizeof(vertices),vertices,glad::GL_STATIC_DRAW);
+    
+    println "[21] INPUT ASSEMBLER: Uploading index buffer (EBO)";
+    // Send index data (how vertices form triangles)
+    glad::glBindBuffer(glad::GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glad::glBufferData(glad::GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, glad::GL_STATIC_DRAW);
+    
+    println "[22] INPUT ASSEMBLER: Defining vertex layout (attribute 0)";
+    // Tell GPU how to interpret the raw vertex data
+    // position attribute
+    glad::glVertexAttribPointer(0, 3, glad::GL_FLOAT, glad::GL_FALSE, 8 * sizeof(f32), (void*)0);
+    glad::glEnableVertexAttribArray(0);
+
+    // Tell GPU how to interpret the raw vertex data
+    // color attribute
+    glad::glVertexAttribPointer(1, 3, glad::GL_FLOAT, glad::GL_FALSE, 8 * sizeof(f32), (void*)(3 * sizeof(f32)));
+    glad::glEnableVertexAttribArray(1);
+
+    // Tell GPU how to interpret the raw vertex data
+    //// texture coord attribute
+    glad::glVertexAttribPointer(2, 2, glad::GL_FLOAT, glad::GL_FALSE, 8 * sizeof(f32), (void*)(6 * sizeof(f32)));
+    glad::glEnableVertexAttribArray(2);
+
+    // load and create a texture 
+    // -------------------------
+    let texture01: uint;
+    glad::glGenTextures(1,&texture01);
+    glad::glBindTexture(glad::GL_TEXTURE_2D, texture01);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_S, glad::GL_CLAMP_TO_EDGE);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_T, glad::GL_CLAMP_TO_EDGE);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MIN_FILTER, glad::GL_LINEAR_MIPMAP_LINEAR);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MAG_FILTER, glad::GL_LINEAR);
+
+    let texture_width01: int;
+    let texture_height01: int;
+    let texture_nr_channels01: int;
+
+    let texture_data01: c_uchar* = stb::stbi_load("textures/container.jpg",&texture_width01,&texture_height01,&texture_nr_channels01,0);
+
+    if texture_data01 != NULL {
+        glad::glTexImage2D(
+            glad::GL_TEXTURE_2D,
+            0,
+            glad::GL_RGB,
+            texture_width01,
+            texture_height01,
+            0,
+            glad::GL_RGB,
+            glad::GL_UNSIGNED_BYTE,
+            texture_data01
+        );
+        glad::glGenerateMipmap(glad::GL_TEXTURE_2D);
+    } else {
+        eprintln "Failed to load texture 01";
+    }
+
+    stb::stbi_image_free(texture_data01);
+
+    // load and create a texture 
+    // -------------------------
+    let texture02: uint;
+    glad::glGenTextures(1,&texture02);
+    glad::glBindTexture(glad::GL_TEXTURE_2D, texture02);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_S, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_T, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MIN_FILTER, glad::GL_LINEAR);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MAG_FILTER, glad::GL_LINEAR);
+
+    let texture_width02: int;
+    let texture_height02: int;
+    let texture_nr_channels02: int;
+
+    stb::stbi_set_flip_vertically_on_load(true); 
+    let texture_data02: c_uchar* = stb::stbi_load("textures/awesomeface.png",&texture_width02,&texture_height02,&texture_nr_channels02,0);
+
+    if texture_data02 != NULL {
+        glad::glTexImage2D(
+            glad::GL_TEXTURE_2D,
+            0,
+            glad::GL_RGBA,
+            texture_width02,
+            texture_height02,
+            0,
+            glad::GL_RGBA,
+            glad::GL_UNSIGNED_BYTE,
+            texture_data02
+        );
+        glad::glGenerateMipmap(glad::GL_TEXTURE_2D);
+    } else {
+        eprintln "Failed to load texture 02";
+    }
+
+    stb::stbi_image_free(texture_data02);
+    
+    our_shader.useProgram();
+    glad::glUniform1i(glad::glGetUniformLocation(our_shader.ID,"texture01"),0);
+    our_shader.setInt("texture02",1);
+
+    println "[23] CPU: Unbinding VBO";
+    // Safe to unbind because VAO already stored the configuration
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, 0); 
+
+    println "[24] CPU: Unbinding VAO";
+    glad::glBindVertexArray(0); 
+
+    println "[25] RASTERIZER CONFIG: Wireframe mode enabled";
+    // Instead of filled triangles, draw only edges (useful for debugging)
+    glad::glPolygonMode(glad::GL_FRONT_AND_BACK, glad::GL_FILL);
+
+    println "[26] Setup complete → entering render loop";
+    // From now on, we repeatedly draw frames
+
+    // render loop
+    while glfw::glfwWindowShouldClose(window) == 0 {
+        process_input(window);
+
+        glad::glClearColor(0.2f,0.3f,0.3f,1.0f);
+        glad::glClear(glad::GL_COLOR_BUFFER_BIT);
+
+        // =========================
+        // GPU PIPELINE EXECUTION
+        // =========================
+
+        glad::glActiveTexture(glad::GL_TEXTURE0);
+        glad::glBindTexture(glad::GL_TEXTURE_2D, texture01);
+        glad::glActiveTexture(glad::GL_TEXTURE1);
+        glad::glBindTexture(glad::GL_TEXTURE_2D, texture02);
+
+        // [27] Select shader program (GPU will use it)
+        our_shader.useProgram();
+
+        // [28] Bind geometry (VAO)
+        glad::glBindVertexArray(VAO);
+
+        // [29] DRAW CALL:
+        // This is where everything happens inside the GPU:
+        // 1. Vertex Shader runs (per vertex)
+        // 2. Triangles are assembled
+        // 3. Rasterization converts them to fragments (pixels)
+        // 4. Fragment Shader runs (per pixel)
+        glad::glDrawElements(glad::GL_TRIANGLES,6,glad::GL_UNSIGNED_INT,0);
+        
+        glfw::glfwSwapBuffers(window);
+        glfw::glfwPollEvents();
+    }
+
+    println "[30] CPU: Program terminated";
+    return 0;
+}
+
+// input
+fn process_input(window: glfw::GLFWwindow*) {
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_ESCAPE) == glfw::GLFW_PRESS {
+        println "[INPUT] ESC pressed → closing window";
+        glfw::glfwSetWindowShouldClose(window, true);
+    }
+}
+
+// resize callback
+fn framebuffer_size_callback(_window: glfw::GLFWwindow*, width: int, height: int) {
+    println "[CALLBACK] Viewport updated";
+    // Updates the drawable area of the window
+    glad::glViewport(0, 0, width, height);
+}
