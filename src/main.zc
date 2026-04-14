@@ -19,7 +19,10 @@
 //import "./1-getting-started/4.2.textures_combined/textures_combined.zc"
 //import "./1-getting-started/4.3.textures_exercise1/textures_exercise1.zc"
 //import "./1-getting-started/4.4.textures_exercise2/textures_exercise2.zc"
-import "./1-getting-started/4.5.textures_exercise3/textures_exercise3.zc"
+//import "./1-getting-started/4.5.textures_exercise3/textures_exercise3.zc"
+import "./1-getting-started/4.6.textures_exercise4/textures_exercise4.zc"
+
+
 
 fn main() {
     _main();
