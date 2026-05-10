@@ -1,4 +1,4 @@
-//> include: ./libs/glad/include ./libs/glfw/include ./libs/stb_image
+//> include: ./libs/glad/include ./libs/glfw/include ./libs/stb_image ./libs/glm/include
 //> lib: ./libs/glfw/lib 
 //> link: ./libs/glad/src/glad.c -lglfw3 ./libs/stb_image/stb_image.c -lopengl32 -lgdi32 -luser32 -lkernel32 -lshell32 -o build/app.exe
 // shell: copy /Y .\libs\sdl3\x86_64-w64-mingw32\bin\*.dll .\build\
@@ -20,8 +20,8 @@
 //import "./1-getting-started/4.3.textures_exercise1/textures_exercise1.zc"
 //import "./1-getting-started/4.4.textures_exercise2/textures_exercise2.zc"
 //import "./1-getting-started/4.5.textures_exercise3/textures_exercise3.zc"
-import "./1-getting-started/4.6.textures_exercise4/textures_exercise4.zc"
-
+//import "./1-getting-started/4.6.textures_exercise4/textures_exercise4.zc"
+import "./1-getting-started/5.1.transformations/5.1.transformations.zc"
 
 
 fn main() {
