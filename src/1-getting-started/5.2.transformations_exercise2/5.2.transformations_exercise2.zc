@@ -1,0 +1,226 @@
+import "glad/glad.h" as glad;
+import "GLFW/glfw3.h" as glfw;
+import "../../utils/shader_program.zc";
+import "stb_image.h" as stb;
+import "cglm/cglm.h" as glm;           
+import "cglm/affine.h" as glm;        // translate, rotate, etc.
+import "std/math.zc";
+
+// settings
+def SCREEN_WIDTH: uint = 800;
+def SCREEN_HEIGHT: uint = 600;
+
+// forward declarations
+fn framebuffer_size_callback(window: glfw::GLFWwindow*, width: int, height: int);
+fn process_input(window: glfw::GLFWwindow*);
+
+fn _main() -> int {
+    println "[1] CPU: Program start";
+    
+    // =========================
+    // CPU → CONTEXT SETUP
+    // =========================
+
+    println "[2] CPU: Initializing GLFW";
+    glfw::glfwInit();
+    defer glfw::glfwTerminate();
+
+    println "[3] CPU: Configuring OpenGL context (3.3 core)";
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_OPENGL_PROFILE, glfw::GLFW_OPENGL_CORE_PROFILE);
+
+    println "[4] CPU: Creating window + OpenGL context";
+    let window = glfw::glfwCreateWindow(
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        "LearnOpenGL",
+        NULL,
+        NULL
+    );
+
+    if window == NULL {
+        eprintln "Failed to create GLFW window";
+        return -1;
+    }
+
+    println "[5] CPU: Making context current";
+    glfw::glfwMakeContextCurrent(window);
+
+    glfw::glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    println "[6] CPU → DRIVER: Loading OpenGL functions (GLAD)";
+    if glad::gladLoadGLLoader((glad::GLADloadproc)glfw::glfwGetProcAddress) == 0 {
+        eprintln "Failed to initialize GLAD";
+        return -1;
+    }
+
+    let our_shader = ShaderProgram::new("./shaders/5.1.transformations/5.1.shader.vs","./shaders/5.1.transformations/5.1.shader.fs").unwrap();
+    
+
+    // =========================
+    // INPUT ASSEMBLER (GEOMETRY)
+    // =========================
+
+    println "[17] CPU: Defining vertex + index data";
+
+    let vertices: const f32[32] = [
+        0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+        0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+       -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,
+       -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f
+    ];
+
+    let indices: const uint[6] = [0,1,3, 1,2,3];
+
+    let VBO: uint;
+    defer glad::glDeleteBuffers(1, &VBO);
+    let VAO: uint;
+    defer glad::glDeleteVertexArrays(1, &VAO);
+    let EBO: uint;
+    defer glad::glDeleteBuffers(1, &EBO);
+
+    println "[18] CPU → GPU: Creating buffers (VAO, VBO, EBO)";
+    glad::glGenVertexArrays(1,&VAO);
+    glad::glGenBuffers(1,&VBO);
+    glad::glGenBuffers(1, &EBO);
+
+    glad::glBindVertexArray(VAO);
+
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, VBO);
+    glad::glBufferData(glad::GL_ARRAY_BUFFER, sizeof(vertices), vertices, glad::GL_STATIC_DRAW);
+    
+    glad::glBindBuffer(glad::GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glad::glBufferData(glad::GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, glad::GL_STATIC_DRAW);
+    
+    // position
+    glad::glVertexAttribPointer(0, 3, glad::GL_FLOAT, glad::GL_FALSE, 8 * sizeof(f32), (void*)0);
+    glad::glEnableVertexAttribArray(0);
+
+    // color
+    glad::glVertexAttribPointer(1, 3, glad::GL_FLOAT, glad::GL_FALSE, 8 * sizeof(f32), (void*)(3 * sizeof(f32)));
+    glad::glEnableVertexAttribArray(1);
+
+    // texture coord
+    glad::glVertexAttribPointer(2, 2, glad::GL_FLOAT, glad::GL_FALSE, 8 * sizeof(f32), (void*)(6 * sizeof(f32)));
+    glad::glEnableVertexAttribArray(2);
+
+    // Textures (mantido igual)
+    let texture01: uint;
+    glad::glGenTextures(1,&texture01);
+    glad::glBindTexture(glad::GL_TEXTURE_2D, texture01);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_S, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_T, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MIN_FILTER, glad::GL_LINEAR_MIPMAP_LINEAR);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MAG_FILTER, glad::GL_LINEAR);
+
+    let texture_width01: int;
+    let texture_height01: int;
+    let texture_nr_channels01: int;
+
+    let texture_data01: c_uchar* = stb::stbi_load("textures/container.jpg",&texture_width01,&texture_height01,&texture_nr_channels01,0);
+
+    if texture_data01 != NULL {
+        glad::glTexImage2D(glad::GL_TEXTURE_2D, 0, glad::GL_RGB, texture_width01, texture_height01, 0, glad::GL_RGB, glad::GL_UNSIGNED_BYTE, texture_data01);
+        glad::glGenerateMipmap(glad::GL_TEXTURE_2D);
+    } else {
+        eprintln "Failed to load texture 01";
+    }
+    stb::stbi_image_free(texture_data01);
+
+    let texture02: uint;
+    glad::glGenTextures(1,&texture02);
+    glad::glBindTexture(glad::GL_TEXTURE_2D, texture02);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_S, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_T, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MIN_FILTER, glad::GL_LINEAR);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MAG_FILTER, glad::GL_LINEAR);
+
+    let texture_width02: int;
+    let texture_height02: int;
+    let texture_nr_channels02: int;
+
+    stb::stbi_set_flip_vertically_on_load(true); 
+    let texture_data02: c_uchar* = stb::stbi_load("textures/awesomeface.png",&texture_width02,&texture_height02,&texture_nr_channels02,0);
+
+    if texture_data02 != NULL {
+        glad::glTexImage2D(glad::GL_TEXTURE_2D, 0, glad::GL_RGBA, texture_width02, texture_height02, 0, glad::GL_RGBA, glad::GL_UNSIGNED_BYTE, texture_data02);
+        glad::glGenerateMipmap(glad::GL_TEXTURE_2D);
+    } else {
+        eprintln "Failed to load texture 02";
+    }
+    stb::stbi_image_free(texture_data02);
+    
+    our_shader.useProgram();
+    glad::glUniform1i(glad::glGetUniformLocation(our_shader.ID,"texture01"),0);
+    our_shader.setInt("texture02",1);
+
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, 0); 
+    glad::glBindVertexArray(0); 
+
+    glad::glPolygonMode(glad::GL_FRONT_AND_BACK, glad::GL_FILL);
+
+    println "[26] Setup complete → entering render loop";
+
+    // render loop
+    while glfw::glfwWindowShouldClose(window) == 0 {
+        process_input(window);
+
+        glad::glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glad::glClear(glad::GL_COLOR_BUFFER_BIT);
+
+        glad::glActiveTexture(glad::GL_TEXTURE0);
+        glad::glBindTexture(glad::GL_TEXTURE_2D, texture01);
+        glad::glActiveTexture(glad::GL_TEXTURE1);
+        glad::glBindTexture(glad::GL_TEXTURE_2D, texture02);
+
+        our_shader.useProgram();
+
+        let transformLoc: uint = glad::glGetUniformLocation(our_shader.ID, "transform");
+        // First transformation 
+        let transform1: glm::mat4;
+        glm::glm_mat4_identity(transform1);
+        let t1: glm::vec3 = [0.5f, -0.5f, 0.0f];
+        glm::glm_translate(transform1, t1);
+        let axis1: glm::vec3 = [0.0f, 0.0f, 1.0f];                  
+        glm::glm_rotate(transform1, (f32)glfw::glfwGetTime(), axis1);
+        glad::glUniformMatrix4fv(transformLoc, 1, glad::GL_FALSE, (f32*)transform1);
+
+
+        glad::glBindVertexArray(VAO);
+        glad::glDrawElements(glad::GL_TRIANGLES, 6, glad::GL_UNSIGNED_INT, 0);
+
+        // Second transformation
+        let transform2: glm::mat4;
+        glm::glm_mat4_identity(transform2);
+        let t2: glm::vec3 = [-0.5f, 0.5f, 0.0f];
+        glm::glm_translate(transform2, t2);
+
+        let scaleAmount: f32 = Math::sin((f32)glfw::glfwGetTime());
+        let s: glm::vec3 = [scaleAmount, scaleAmount, scaleAmount];
+        glm::glm_scale(transform2, s);
+
+        glad::glUniformMatrix4fv(transformLoc, 1, glad::GL_FALSE, (f32*)transform2);
+
+        glad::glBindVertexArray(VAO);
+        glad::glDrawElements(glad::GL_TRIANGLES, 6, glad::GL_UNSIGNED_INT, 0);
+        
+        glfw::glfwSwapBuffers(window);
+        glfw::glfwPollEvents();
+    }
+
+    println "[30] CPU: Program terminated";
+    return 0;
+}
+
+fn process_input(window: glfw::GLFWwindow*) {
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_ESCAPE) == glfw::GLFW_PRESS {
+        println "[INPUT] ESC pressed → closing window";
+        glfw::glfwSetWindowShouldClose(window, true);
+    }
+}
+
+fn framebuffer_size_callback(_window: glfw::GLFWwindow*, width: int, height: int) {
+    println "[CALLBACK] Viewport updated";
+    glad::glViewport(0, 0, width, height);
+}
