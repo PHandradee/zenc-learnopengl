@@ -23,7 +23,8 @@
 //import "./1-getting-started/4.6.textures_exercise4/textures_exercise4.zc"
 //import "./1-getting-started/5.1.transformations/5.1.transformations.zc"
 //import "./1-getting-started/5.2.transformations_exercise1/5.2.transformations_exercise1.zc"
-import "./1-getting-started/5.2.transformations_exercise2/5.2.transformations_exercise2.zc"
+//import "./1-getting-started/5.2.transformations_exercise2/5.2.transformations_exercise2.zc"
+import "./1-getting-started/6.1.coordinate_systems/coordinate_systems.zc"
 
 fn main() {
     _main();

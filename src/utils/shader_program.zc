@@ -2,6 +2,7 @@ import "glad/glad.h" as glad;
 import "std/fs.zc";
 import "std/result.zc";
 import "std/string.zc";
+import "cglm/cglm.h" as glm; 
 
 struct ShaderProgram {
     ID: uint;
@@ -129,6 +130,14 @@ impl ShaderProgram {
 
     fn setFloat(self, name: char*, value: float) {
         glad::glUniform1f(glad::glGetUniformLocation(self.ID, name), value);
+    }
+
+    fn setMat4(self, name: char*, value: glm::mat4) {
+        glad::glUniformMatrix4fv(
+            glad::glGetUniformLocation(self.ID, name),
+            1,
+            glad::GL_FALSE,
+            (f32*)value);
     }
 }
 
