@@ -28,7 +28,8 @@
 //import "./1-getting-started/6.3.coordinate_systems_multiple/coordinate_systems_multiple.zc"
 //import "./1-getting-started/6.4.coordinate_systems_exercise3/coordinate_systems_exercise3.zc"
 //import "./1-getting-started/7.1.camera_circle/camera_circle.zc"
-import "./1-getting-started/7.2.camera_keyboard_dt/camera_keyboard_dt.zc"
+//import "./1-getting-started/7.2.camera_keyboard_dt/camera_keyboard_dt.zc"
+import "./1-getting-started/7.3.camera_mouse_zoom/camera_mouse_zoom.zc"
 
 fn main() {
     _main();
