@@ -1,0 +1,140 @@
+import "glad/glad.h" as glad
+import "cglm/cglm.h" as glm
+import "std/math.zc"
+
+// Camera Movement Enum
+enum CameraMovement {
+    FORWARD,
+    BACKWARD,
+    LEFT,
+    RIGHT
+}
+
+// Default values
+def YAW:         f32 = -90.0f;
+def PITCH:       f32 =  0.0f;
+def SPEED:       f32 =  2.5f;
+def SENSITIVITY: f32 =  0.1f;
+def ZOOM:        f32 =  45.0f;
+
+struct Camera {
+    Position:         glm::vec3;
+    Front:            glm::vec3;
+    Up:               glm::vec3;
+    Right:            glm::vec3;
+    WorldUp:          glm::vec3;
+
+    Yaw:              f32;
+    Pitch:            f32;
+
+    MovementSpeed:    f32;
+    MouseSensitivity: f32;
+    Zoom:             f32;
+}
+
+impl Camera {
+
+    fn new(position: glm::vec3,
+           up: glm::vec3,
+           yaw: f32 = YAW,
+           pitch: f32 = PITCH) -> Self {
+
+        let cam: Camera;
+
+        glm::glm_vec3_copy(position, cam.Position);
+
+        let default_front: glm::vec3 = [0.0f, 0.0f, -1.0f];
+        glm::glm_vec3_copy(default_front, cam.Front);
+
+        glm::glm_vec3_copy(up, cam.WorldUp);
+
+        let default_up: glm::vec3 = [0.0f, 1.0f, 0.0f];
+        glm::glm_vec3_copy(default_up, cam.Up);
+
+        let zero: glm::vec3 = [0.0f, 0.0f, 0.0f];
+        glm::glm_vec3_copy(zero, cam.Right);
+
+        cam.Yaw              = yaw;
+        cam.Pitch            = pitch;
+        cam.MovementSpeed    = SPEED;
+        cam.MouseSensitivity = SENSITIVITY;
+        cam.Zoom             = ZOOM;
+
+        Camera::update_camera_vectors(&cam);
+        return cam;
+    }
+
+    fn get_view_matrix(self, dest: glm::mat4) {
+        let target: glm::vec3 = [0.0f, 0.0f, 0.0f];
+        glm::glm_vec3_add(self.Position, self.Front, target);
+        glm::glm_lookat(self.Position, target, self.Up, dest);
+    }
+
+    fn process_keyboard(self, direction: CameraMovement, deltaTime: f32) {
+        let velocity: f32 = self.MovementSpeed * deltaTime;
+
+        match direction {
+            CameraMovement::FORWARD => {
+                let tmp: glm::vec3 = [0.0f, 0.0f, 0.0f];
+                glm::glm_vec3_scale(self.Front, velocity, tmp);
+                glm::glm_vec3_add(self.Position, tmp, self.Position);
+            },
+            CameraMovement::BACKWARD => {
+                let tmp: glm::vec3 = [0.0f, 0.0f, 0.0f];
+                glm::glm_vec3_scale(self.Front, velocity, tmp);
+                glm::glm_vec3_sub(self.Position, tmp, self.Position);
+            },
+            CameraMovement::LEFT => {
+                let tmp: glm::vec3 = [0.0f, 0.0f, 0.0f];
+                glm::glm_vec3_scale(self.Right, velocity, tmp);
+                glm::glm_vec3_sub(self.Position, tmp, self.Position);
+            },
+            CameraMovement::RIGHT => {
+                let tmp: glm::vec3 = [0.0f, 0.0f, 0.0f];
+                glm::glm_vec3_scale(self.Right, velocity, tmp);
+                glm::glm_vec3_add(self.Position, tmp, self.Position);
+            }
+        }
+    }
+
+    fn process_mouse_movement(self, xoffset: f32, yoffset: f32, constrainPitch: bool = true) {
+        xoffset *= self.MouseSensitivity;
+        yoffset *= self.MouseSensitivity;
+
+        self.Yaw   += xoffset;
+        self.Pitch += yoffset;
+
+        if constrainPitch {
+            if self.Pitch > 89.0f  { self.Pitch = 89.0f; }
+            if self.Pitch < -89.0f { self.Pitch = -89.0f; }
+        }
+
+        Camera::update_camera_vectors(self);
+    }
+
+    fn process_mouse_scroll(self, yoffset: f32) {
+        self.Zoom -= yoffset;
+        if self.Zoom < 1.0f  { self.Zoom = 1.0f; }
+        if self.Zoom > 45.0f { self.Zoom = 45.0f; }
+    }
+
+    fn update_camera_vectors(camera: Camera*) {
+        let front: glm::vec3 = [0.0f, 0.0f, 0.0f];
+
+        let yawRad   = glm::glm_rad(camera.Yaw);
+        let pitchRad = glm::glm_rad(camera.Pitch);
+
+        front[0] = Math::cos(yawRad) * Math::cos(pitchRad);
+        front[1] = Math::sin(pitchRad);
+        front[2] = Math::sin(yawRad) * Math::cos(pitchRad);
+
+        glm::glm_vec3_normalize_to(front, camera.Front);
+
+        let right: glm::vec3 = [0.0f, 0.0f, 0.0f];
+        glm::glm_vec3_cross(camera.Front, camera.WorldUp, right);
+        glm::glm_vec3_normalize_to(right, camera.Right);
+
+        glm::glm_vec3_cross(camera.Right, camera.Front, right);
+        glm::glm_vec3_normalize_to(right, camera.Up);
+    }
+}
