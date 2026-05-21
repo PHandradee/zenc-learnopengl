@@ -1,0 +1,414 @@
+import "glad/glad.h" as glad;
+import "GLFW/glfw3.h" as glfw;
+import "../../utils/shader_program.zc";
+import "../../utils/camera.zc";
+import "stb_image.h" as stb;
+import "cglm/cglm.h" as glm;           
+import "cglm/affine.h" as glm;
+import "std/math.zc";
+
+def SCREEN_WIDTH:  uint = 800;
+def SCREEN_HEIGHT: uint = 600;
+let cam:Camera;
+
+let first_mouse: bool = true;
+let last_x: f32 = SCREEN_WIDTH / 2.0f;
+let last_y: f32 = SCREEN_HEIGHT / 2.0f;
+
+let delta_time: f32 = 0.0f;
+let last_frame: f32 = 0.0f;
+
+// Forward declarations
+fn framebuffer_size_callback(window: glfw::GLFWwindow*, width: int, height: int);
+fn mouse_callback(window: glfw::GLFWwindow*, xpos_in: f64, ypos_in: f64);
+fn scroll_callback(window: glfw::GLFWwindow*, xoffset: f64, yoffset: f64);
+fn process_input(window: glfw::GLFWwindow*);
+
+fn _main() -> int {
+    println "[1] CPU: Program start";
+    // Entry point of the application (runs on CPU)
+
+    
+    // =========================
+    // CPU → CONTEXT SETUP
+    // =========================
+
+    println "[2] CPU: Initializing GLFW";
+    // Initializes the window system and prepares OpenGL usage
+    glfw::glfwInit();
+    defer glfw::glfwTerminate();
+
+    println "[3] CPU: Configuring OpenGL context (3.3 core)";
+    // Tells GLFW which OpenGL version we want to use
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_OPENGL_PROFILE, glfw::GLFW_OPENGL_CORE_PROFILE);
+
+    println "[4] CPU: Creating window + OpenGL context";
+    // Creates a window AND an OpenGL context attached to it
+    let window = glfw::glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "LearnOpenGL - Camera Class", NULL, NULL);
+    if window == NULL {
+        eprintln "Failed to create GLFW window";
+        return -1;
+    }
+
+    println "[5] CPU: Making context current";
+    // Makes this window's OpenGL context the active one on this thread
+    glfw::glfwMakeContextCurrent(window);
+
+    // Registers a callback that updates the viewport when window resizes
+    glfw::glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfw::glfwSetCursorPosCallback(window, mouse_callback);
+    glfw::glfwSetScrollCallback(window, scroll_callback);
+
+    glfw::glfwSetInputMode(window, glfw::GLFW_CURSOR, glfw::GLFW_CURSOR_DISABLED);
+
+    println "[6] CPU → DRIVER: Loading OpenGL functions (GLAD)";
+    // GLAD loads function pointers for OpenGL (because OpenGL is driver-dependent)
+    if glad::gladLoadGLLoader((glad::GLADloadproc)glfw::glfwGetProcAddress) == 0 {
+        eprintln "Failed to initialize GLAD";
+        return -1;
+    }
+
+    glad::glEnable(glad::GL_DEPTH_TEST);
+
+    let our_shader = ShaderProgram::new(
+        "./shaders/6.2.coordinate_systems_depth/6.2.shader.vs",
+        "./shaders/6.2.coordinate_systems_depth/6.2.shader.fs"
+    ).unwrap();
+
+    // =========================
+    // INPUT ASSEMBLER (GEOMETRY)
+    // =========================
+
+    println "[17] CPU: Defining vertex + index data";
+    // Define geometry on CPU (positions of points)
+
+    // ====================== VERTEX DATA ======================
+    let vertices: const f32[180] = [
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+    ];
+
+        // world space positions of our cubes
+    let cube_positions: f32[10][3] = [
+        [ 0.0f,  0.0f,  0.0f ],
+        [ 2.0f,  5.0f, -15.0f ],
+        [-1.5f, -2.2f, -2.5f ],
+        [-3.8f, -2.0f, -12.3f ],
+        [ 2.4f, -0.4f, -3.5f ],
+        [-1.7f,  3.0f, -7.5f ],
+        [ 1.3f, -2.0f, -2.5f ],
+        [ 1.5f,  2.0f, -2.5f ],
+        [ 1.5f,  0.2f, -1.5f ],
+        [-1.3f,  1.0f, -1.5f ]
+    ];
+
+    let VBO: uint;
+    defer glad::glDeleteBuffers(1, &VBO);
+    let VAO: uint;
+    defer glad::glDeleteVertexArrays(1, &VAO);
+
+    println "[18] CPU → GPU: Creating buffers (VAO, VBO)";
+    // Ask GPU to allocate memory for vertex data
+    glad::glGenVertexArrays(1, &VAO);
+    glad::glGenBuffers(1, &VBO);
+
+    println "[19] INPUT ASSEMBLER: Binding VAO (captures state)";
+    // VAO stores how vertex data is configured
+    glad::glBindVertexArray(VAO);
+
+    println "[20] INPUT ASSEMBLER: Uploading vertex buffer (VBO)";
+    // Send vertex data to GPU memory
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, VBO);
+    glad::glBufferData(glad::GL_ARRAY_BUFFER, sizeof(vertices), vertices, glad::GL_STATIC_DRAW);
+    
+    println "[22] INPUT ASSEMBLER: Defining vertex layout (attribute 0)";
+    // Tell GPU how to interpret the raw vertex data
+    // position attribute
+    glad::glVertexAttribPointer(0, 3, glad::GL_FLOAT, glad::GL_FALSE, 5 * sizeof(f32), (void*)0);
+    glad::glEnableVertexAttribArray(0);
+
+    // Tell GPU how to interpret the raw vertex data
+    //// texture coord attribute
+    glad::glVertexAttribPointer(1, 2, glad::GL_FLOAT, glad::GL_FALSE, 5 * sizeof(f32), (void*)(3 * sizeof(f32)));
+    glad::glEnableVertexAttribArray(1);
+
+    // ====================== TEXTURES ======================
+    // load and create a texture 
+    // -------------------------
+    let texture01: uint;
+    glad::glGenTextures(1,&texture01);
+    glad::glBindTexture(glad::GL_TEXTURE_2D, texture01);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_S, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_T, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MIN_FILTER, glad::GL_LINEAR_MIPMAP_LINEAR);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MAG_FILTER, glad::GL_LINEAR);
+
+    let w1: int; let h1: int; let ch1: int;
+    let data1: c_uchar* = stb::stbi_load("textures/container.jpg",&w1,&h1,&ch1,0);
+
+    if data1 != NULL {
+        glad::glTexImage2D(
+            glad::GL_TEXTURE_2D,
+            0,
+            glad::GL_RGB,
+            w1,
+            h1,
+            0,
+            glad::GL_RGB,
+            glad::GL_UNSIGNED_BYTE,
+            data1
+        );
+        glad::glGenerateMipmap(glad::GL_TEXTURE_2D);
+    } else {
+        eprintln "Failed to load texture 01";
+    }
+
+    stb::stbi_image_free(data1);
+
+    // load and create a texture 
+    // -------------------------
+    let texture02: uint;
+    glad::glGenTextures(1,&texture02);
+    glad::glBindTexture(glad::GL_TEXTURE_2D, texture02);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_S, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_WRAP_T, glad::GL_REPEAT);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MIN_FILTER, glad::GL_LINEAR);
+    glad::glTexParameteri(glad::GL_TEXTURE_2D, glad::GL_TEXTURE_MAG_FILTER, glad::GL_LINEAR);
+
+    stb::stbi_set_flip_vertically_on_load(true); 
+    let w2: int; let h2: int; let ch2: int;
+    let data2: c_uchar* = stb::stbi_load("textures/awesomeface.png",&w2,&h2,&ch2,0);
+
+    if data2 != NULL {
+        glad::glTexImage2D(
+            glad::GL_TEXTURE_2D,
+            0,
+            glad::GL_RGBA,
+            w2,
+            h2,
+            0,
+            glad::GL_RGBA,
+            glad::GL_UNSIGNED_BYTE,
+            data2
+        );
+        glad::glGenerateMipmap(glad::GL_TEXTURE_2D);
+    } else {
+        eprintln "Failed to load texture 02";
+    }
+
+    stb::stbi_image_free(data2);
+    
+    our_shader.useProgram();
+    glad::glUniform1i(glad::glGetUniformLocation(our_shader.ID,"texture01"),0);
+    our_shader.setInt("texture02",1);
+
+    println "[23] CPU: Unbinding VBO";
+    // Safe to unbind because VAO already stored the configuration
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, 0); 
+
+    println "[24] CPU: Unbinding VAO";
+    glad::glBindVertexArray(0); 
+
+    println "[25] RASTERIZER CONFIG: Wireframe mode enabled";
+
+    let a: glm::vec3 = [0.0f, 0.0f, 3.0f];
+    let b: glm::vec3 = [0.0f, 1.0f, 0.0f];
+    cam = Camera::new(a,b);
+    cam.change_camera_type(CameraType::FPS);
+
+    println "[26] Setup complete → entering render loop";
+    // From now on, we repeatedly draw frames
+
+    // ====================== RENDER LOOP ======================
+    while glfw::glfwWindowShouldClose(window) == 0 {
+        // per-frame time logic
+        // --------------------
+        let current_frame: f32 = (f32)glfw::glfwGetTime();
+        delta_time = current_frame - last_frame;
+        last_frame = current_frame;
+        
+        process_input(window);
+
+        glad::glClearColor(0.2f,0.3f,0.3f,1.0f);
+        glad::glClear(glad::GL_COLOR_BUFFER_BIT | glad::GL_DEPTH_BUFFER_BIT);
+
+        // =========================
+        // GPU PIPELINE EXECUTION
+        // =========================
+
+        glad::glActiveTexture(glad::GL_TEXTURE0);
+        glad::glBindTexture(glad::GL_TEXTURE_2D, texture01);
+        glad::glActiveTexture(glad::GL_TEXTURE1);
+        glad::glBindTexture(glad::GL_TEXTURE_2D, texture02);
+
+        // [27] Select shader program (GPU will use it)
+        our_shader.useProgram();
+
+        // pass projection matrix to shader (as projection matrix rarely changes there's no need to do this per frame)
+        // -----------------------------------------------------------------------------------------------------------
+        let projection: glm::mat4 = glm::GLM_MAT4_IDENTITY_INIT;
+        glm::glm_perspective(
+            glm::glm_rad(cam.Zoom),
+            (f32)SCREEN_WIDTH / (f32)SCREEN_HEIGHT,
+            0.1f,
+            100.0f,
+            projection
+        );
+        our_shader.setMat4(
+            "projection",
+            projection
+        );
+
+        // camera/view transformation
+        let view: glm::mat4 = glm::GLM_MAT4_IDENTITY_INIT;
+        cam.get_view_matrix(view);
+
+        // pass transformation matrices to shader
+        our_shader.setMat4(
+            "view",
+            view
+        );
+
+        // render boxes
+        glad::glBindVertexArray(VAO);
+
+        for i in 0..10 {
+
+            // model matrix
+            let model: glm::mat4 = glm::GLM_MAT4_IDENTITY_INIT;
+
+            // model = translate(model, cubePositions[i])
+            glm::glm_translate(
+                model,
+                cube_positions[i]
+            );
+
+            // float angle = 20.0f * i;
+            let angle = 20.0f * ((f32)i);
+
+            // model = rotate(model, radians(angle), axis)
+            let rotation_axis: glm::vec3 = [
+                1.0f,
+                0.3f,
+                0.5f
+            ];
+
+            glm::glm_rotate(
+                model,
+                glm::glm_rad(angle),
+                rotation_axis
+            );
+
+            // send model matrix
+            our_shader.setMat4(
+                "model",
+                model
+            );
+
+            // draw cube
+            glad::glDrawArrays(
+                glad::GL_TRIANGLES,
+                0,
+                36
+            );
+        }
+        
+        glfw::glfwSwapBuffers(window);
+        glfw::glfwPollEvents();
+    }
+
+    println "[30] CPU: Program terminated";
+    return 0;
+}
+
+// ====================== INPUT ======================
+// input
+fn process_input(window: glfw::GLFWwindow*) {
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_ESCAPE) == glfw::GLFW_PRESS {
+        println "[INPUT] ESC pressed → closing window";
+        glfw::glfwSetWindowShouldClose(window, true);
+    }
+
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_W) == glfw::GLFW_PRESS {
+        cam.process_keyboard(CameraMovement::FORWARD, delta_time);
+    }
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_S) == glfw::GLFW_PRESS {
+        cam.process_keyboard(CameraMovement::BACKWARD, delta_time);
+    }
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_A) == glfw::GLFW_PRESS {
+        cam.process_keyboard(CameraMovement::LEFT, delta_time);
+    }
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_D) == glfw::GLFW_PRESS {
+        cam.process_keyboard(CameraMovement::RIGHT, delta_time);
+    }
+}
+
+// resize callback
+fn framebuffer_size_callback(_window: glfw::GLFWwindow*, width: int, height: int) {
+    println "[CALLBACK] Viewport updated";
+    // Updates the drawable area of the window
+    glad::glViewport(0, 0, width, height);
+}
+
+fn mouse_callback(window: glfw::GLFWwindow*, xpos_in: f64, ypos_in: f64) {
+    let xpos = (f32)xpos_in;
+    let ypos = (f32)ypos_in;
+
+    if first_mouse {
+        last_x = xpos;
+        last_y = ypos;
+        first_mouse = false;
+    }
+
+    let xoffset = xpos - last_x;
+    let yoffset = last_y - ypos;
+    last_x = xpos;
+    last_y = ypos;
+
+    cam.process_mouse_movement(xoffset, yoffset, true);
+}
+
+fn scroll_callback(window: glfw::GLFWwindow*, xoffset: f64, yoffset: f64) {
+    cam.process_mouse_scroll((f32)yoffset);
+}
