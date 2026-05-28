@@ -87,14 +87,14 @@ Track your progress through the LearnOpenGL tutorial series:
 - [x] Textures
 - [x] Transformations
 - [x] Coordinate Systems
-- [ ] Camera
+- [x] Camera
 
 </details>
 
 <details>
 <summary><strong>💡 Lighting</strong> (6/6)</summary>
 
-- [ ] Colors
+- [x] Colors
 - [ ] Basic Lighting
 - [ ] Materials
 - [ ] Lighting Maps
