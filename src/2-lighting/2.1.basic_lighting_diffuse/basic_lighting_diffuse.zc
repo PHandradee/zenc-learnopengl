@@ -282,9 +282,10 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
 */
+//> macos: define: APPLE_PLATFORM
 
 import "glad/glad.h" as glad;
-import "GLFW/glfw.h" as glfw;
+import "GLFW/glfw3.h" as glfw;
 import "cglm/cglm.h" as glm;
 import "../../utils/shader_program.zc";
 import "../../utils/camera.zc";
@@ -302,6 +303,46 @@ def SCREEN_HEIGHT: uint = 600;
 
 //camera
 let camera: Camera;
+let last_x = SCREEN_WIDTH / 2.0f;
+let last_y = SCREEN_HEIGHT / 2.0f;
+let first_mouse: bool = true;
+
+//timing
+let delta_time: f32 = 0.0f;
+let last_frame: f32 = 0.0f;
+
+//lighting
+let light_pos: glm::vec3 = [1.2f,1.0f,2.0f];
+
+
+fn _main() -> int {
+    // glfw: initiliaze and configure
+    // -----------------------------
+    glfw::glfwInit();
+    defer glfw::glfwTerminate();
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfw::glfwWindowHint(glfw::GLFW_OPENGL_PROFILE, glfw::GLFW_OPENGL_CORE_PROFILE);
+    
+#ifdef APPLE_PLATFORM
+    glfw::glfwWindowHint(glfw::GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
+
+    // glfw window creation
+    // ---------------------
+    let window: glfw::GLFWwindow* = glfw::glfwCreateWindow(
+        SCREEN_WIDTH
+        ,SCREEN_HEIGHT
+        ,"LearnOpengl"
+        ,NULL
+        ,NULL);
+    
+    if window == NULL {
+        eprintln "Failed to create GLFW window";
+        return -1; 
+    }
+
+}
 
 
 

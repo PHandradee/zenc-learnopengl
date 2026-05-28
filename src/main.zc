@@ -31,7 +31,8 @@
 //import "./1-getting-started/7.2.camera_keyboard_dt/camera_keyboard_dt.zc"
 //import "./1-getting-started/7.3.camera_mouse_zoom/camera_mouse_zoom.zc"
 //import "./1-getting-started/7.4.camera_class/camera_class.zc"
-import "./1-getting-started/7.5.camera_exercise1/camera_exercise1.zc"
+//import "./1-getting-started/7.5.camera_exercise1/camera_exercise1.zc"
+import "./2-lighting/2.1.basic_lighting_diffuse/basic_lighting_diffuse.zc"
 
 fn main() {
     _main();
