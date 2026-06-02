@@ -1,287 +1,3 @@
-/*
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include <learnopengl/shader_m.h>
-#include <learnopengl/camera.h>
-
-#include <iostream>
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
-void processInput(GLFWwindow *window);
-
-// settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
-
-// camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
-float lastX = SCR_WIDTH / 2.0f;
-float lastY = SCR_HEIGHT / 2.0f;
-bool firstMouse = true;
-
-// timing
-float deltaTime = 0.0f;	
-float lastFrame = 0.0f;
-
-// lighting
-glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
-
-int main()
-{
-    // glfw: initialize and configure
-    // ------------------------------
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-#ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-
-    // glfw window creation
-    // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
-    if (window == NULL)
-    {
-        std::cout << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
-
-    // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    // glad: load all OpenGL function pointers
-    // ---------------------------------------
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-    {
-        std::cout << "Failed to initialize GLAD" << std::endl;
-        return -1;
-    }
-
-    // configure global opengl state
-    // -----------------------------
-    glEnable(GL_DEPTH_TEST);
-
-    // build and compile our shader zprogram
-    // ------------------------------------
-    Shader lightingShader("2.1.basic_lighting.vs", "2.1.basic_lighting.fs");
-    Shader lightCubeShader("2.1.light_cube.vs", "2.1.light_cube.fs");
-
-    // set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
-    float vertices[] = {
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
-    };
-    // first, configure the cube's VAO (and VBO)
-    unsigned int VBO, cubeVAO;
-    glGenVertexArrays(1, &cubeVAO);
-    glGenBuffers(1, &VBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindVertexArray(cubeVAO);
-
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    // normal attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-
-    // second, configure the light's VAO (VBO stays the same; the vertices are the same for the light object which is also a 3D cube)
-    unsigned int lightCubeVAO;
-    glGenVertexArrays(1, &lightCubeVAO);
-    glBindVertexArray(lightCubeVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // note that we update the lamp's position attribute's stride to reflect the updated buffer data
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-
-    // render loop
-    // -----------
-    while (!glfwWindowShouldClose(window))
-    {
-        // per-frame time logic
-        // --------------------
-        float currentFrame = static_cast<float>(glfwGetTime());
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
-
-        // input
-        // -----
-        processInput(window);
-
-        // render
-        // ------
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // be sure to activate shader when setting uniforms/drawing objects
-        lightingShader.use();
-        lightingShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
-        lightingShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
-        lightingShader.setVec3("lightPos", lightPos);
-
-        // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view = camera.GetViewMatrix();
-        lightingShader.setMat4("projection", projection);
-        lightingShader.setMat4("view", view);
-
-        // world transformation
-        glm::mat4 model = glm::mat4(1.0f);
-        lightingShader.setMat4("model", model);
-
-        // render the cube
-        glBindVertexArray(cubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-
-
-        // also draw the lamp object
-        lightCubeShader.use();
-        lightCubeShader.setMat4("projection", projection);
-        lightCubeShader.setMat4("view", view);
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
-        lightCubeShader.setMat4("model", model);
-
-        glBindVertexArray(lightCubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-
-
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
-
-    // optional: de-allocate all resources once they've outlived their purpose:
-    // ------------------------------------------------------------------------
-    glDeleteVertexArrays(1, &cubeVAO);
-    glDeleteVertexArrays(1, &lightCubeVAO);
-    glDeleteBuffers(1, &VBO);
-
-    // glfw: terminate, clearing all previously allocated GLFW resources.
-    // ------------------------------------------------------------------
-    glfwTerminate();
-    return 0;
-}
-
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow *window)
-{
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.ProcessKeyboard(LEFT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.ProcessKeyboard(RIGHT, deltaTime);
-}
-
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
-    glViewport(0, 0, width, height);
-}
-
-
-// glfw: whenever the mouse moves, this callback is called
-// -------------------------------------------------------
-void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
-{
-    float xpos = static_cast<float>(xposIn);
-    float ypos = static_cast<float>(yposIn);
-
-    if (firstMouse)
-    {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
-
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-
-    lastX = xpos;
-    lastY = ypos;
-
-    camera.ProcessMouseMovement(xoffset, yoffset);
-}
-
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-// ----------------------------------------------------------------------
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-    camera.ProcessMouseScroll(static_cast<float>(yoffset));
-}
-*/
 //> macos: define: APPLE_PLATFORM
 
 import "glad/glad.h" as glad;
@@ -292,9 +8,9 @@ import "../../utils/camera.zc";
 
 fn framebuffer_size_callback(window: glfw::GLFWwindow*
                             , width: int, height: int );
-fn mouse_callback(window:glfw::GLFWwindow*, xpos: f64, ypos: f64);
+fn mouse_callback(window:glfw::GLFWwindow*, xpos_in: f64, ypos_in: f64);
 fn scroll_callback(window: glfw::GLFWwindow*, xoffset: f64, yoffset: f64);
-fn process_output(window: glfw::GLFWwindow*);
+fn process_input(window: glfw::GLFWwindow*);
 
 // settings
 def SCREEN_WIDTH: uint = 800;
@@ -435,14 +151,178 @@ fn _main() -> int {
         , sizeof(vertices)
         , vertices
         , glad::GL_STATIC_DRAW);
-    
 
+    glad::glBindVertexArray(cube_VAO);
+
+    //position attribute
+    glad::glVertexAttribPointer(
+        0, 3, glad::GL_FLOAT
+        , glad::GL_FALSE, 6 * sizeof(f32)
+        , (void*)0 
+        );
+    
+    glad::glEnableVertexAttribArray(0);
+
+    //normal attribute
+    glad::glVertexAttribPointer(
+        1, 3, glad::GL_FLOAT
+        ,glad::GL_FALSE, 6 * sizeof(f32)
+        ,(void*)(3 * sizeof(f32))
+        );
+    glad::glEnableVertexAttribArray(1);
+
+    // second, configure the light's VAO (VBO stays the same), the vertices stays the same
+    // because the light source its a 3d cube too
+    let ligth_cube_VAO: uint;
+    defer glad::glDeleteVertexArrays(1, &ligth_cube_VAO);
+
+    glad::glGenVertexArrays(1, &ligth_cube_VAO);
+    glad::glBindVertexArray(ligth_cube_VAO);
+
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, VBO);
+    // note that we update the lamp's position attribute's stride 
+    // to reflect the updated buffer data
+    glad::glVertexAttribPointer(
+        0, 3, glad::GL_FLOAT
+        , glad::GL_FALSE, 6 * sizeof(f32)
+        ,(void*)0);
+    glEnableVertexAttribArray(0);
+
+    let a: glm::vec3 = [0.0f, 0.0f, 3.0f];
+    let b: glm::vec3 = [0.0f, 1.0f, 0.0f];
+    camera = Camera::new(a,b);
+
+    while !glfw::glfwWindowShouldClose(window) {
+
+        // per-frame time logic
+        // --------------------
+        let current_frame: f32 = (f32)glfw::glfwGetTime();
+        delta_time = current_frame - last_frame;
+        last_frame = current_frame;
+
+        // input
+        // -----
+        process_input(window);
+
+        // render
+        // -----
+        glad::glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glad::glClear(glad::GL_COLOR_BUFFER_BIT | glad::GL_DEPTH_BUFFER_BIT);
+
+        // be sure to activate shader when setting uniforms/drawing objects
+        lighting_shader.useProgram();
+        let color: glm::vec3 = [1.0f, 0.5f,0.31f];
+        lighting_shader.setVec3("objectColor", color);
+        let lcolor: glm::vec3 = [1.0f,1.0f,1.0f];
+        lighting_shader.setVec3("lightColor", lcolor);
+        lighting_shader.setVec3("lightPos", light_pos);
+
+        //  view/projection transformations
+        let projection: glm::mat4 = glm::GLM_MAT4_IDENTITY_INIT;
+        glm::glm_perspective(
+            glm::glm_rad(camera.Zoom),
+            (f32)SCREEN_WIDTH / (f32)SCREEN_HEIGHT,
+            0.1f,
+            100.0f,
+            projection
+        );
+
+        // camera/view transformation
+        let view: glm::mat4 = glm::GLM_MAT4_IDENTITY_INIT;
+        camera.get_view_matrix(view);
+
+        lighting_shader.setMat4(
+            "projection",
+            projection
+        );
+
+        // pass transformation matrices to shader
+        lighting_shader.setMat4(
+            "view",
+            view
+        );
+
+        // world transformation
+        let model: glm::mat4 = glm::GLM_MAT4_IDENTITY_INIT;
+        lighting_shader.setMat4("model", model);
+
+        // render the cube
+        glad::glBindVertexArray(cube_VAO);
+        glad::glDrawArrays(glad::GL_TRIANGLES, 0, 36);
+
+        // also draw the lamp object
+        lighting_cube_shader.useProgram();
+        lighting_cube_shader.setMat4("projection", projection);
+        lighting_cube_shader.setMat4("view", view);
+        //model = glm::GLM_MAT4_IDENTITY_INIT;
+        glm_mat4_identity(model);
+        glm::glm_translate_to(model, light_pos, model);
+        let scale: glm::vec3 = [0.2f,0.2f,0.2f];
+        glm::glm_scale_to(model,scale,model);
+        lighting_cube_shader.setMat4("model",model);
+
+        glad::glBindVertexArray(ligth_cube_VAO);
+        glad::glDrawArrays(glad::GL_TRIANGLES, 0, 36);
+
+        // glfw: swap buffers and poll IO events
+        glfw::glfwSwapBuffers(window);
+        glfw::glfwPollEvents();
+
+    }
+
+    // the cleaning its done via defer calls
+    return 0;
 
 }
 
+// glfw: whenever the window size changed (by OS or user resize)
+// this callback is called
 fn framebuffer_size_callback(window: glfw::GLFWwindow*
-                            , width: int, height: int ) {}
+                            , width: int, height: int ) {
+    glad::glViewport(0,0, width, height);
+}
 
-fn mouse_callback(window:glfw::GLFWwindow*, xpos: f64, ypos: f64) {}
-fn scroll_callback(window: glfw::GLFWwindow*, xoffset: f64, yoffset: f64) {}
-fn process_output(window: glfw::GLFWwindow*) {}
+// glfw: whenever the mouse moves, this callback is called
+fn mouse_callback(window:glfw::GLFWwindow*, xpos_in: f64, ypos_in: f64) {
+    let xpos: f32 = (f32)xpos_in;
+    let ypos: f32 = (f32)ypos_in;
+
+    if first_mouse {
+        last_x = xpos;
+        last_y = ypos;
+        first_mouse = false;
+    }
+    let x_offset: f32 = xpos - last_x;
+    let y_offset: f32 = last_y - ypos;
+
+    last_x = xpos;
+    last_y = ypos;
+
+    camera.process_mouse_movement(x_offset, y_offset, true);
+
+}
+
+fn scroll_callback(window: glfw::GLFWwindow*, xoffset: f64, yoffset: f64) {
+    camera.process_mouse_scroll((f32)yoffset);
+}
+
+
+fn process_input(window: glfw::GLFWwindow*) {
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_ESCAPE) == glfw::GLFW_PRESS {
+        glfw::glfwSetWindowShouldClose(window, true);
+    }
+
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_W) == glfw::GLFW_PRESS {
+        camera.process_keyboard(CameraMovement::FORWARD, delta_time);
+    }
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_S) == glfw::GLFW_PRESS {
+        camera.process_keyboard(CameraMovement::BACKWARD, delta_time);
+    }
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_A) == glfw::GLFW_PRESS {
+        camera.process_keyboard(CameraMovement::LEFT, delta_time);
+    }
+    if glfw::glfwGetKey(window, glfw::GLFW_KEY_D) == glfw::GLFW_PRESS {
+        camera.process_keyboard(CameraMovement::RIGHT, delta_time);
+    }
+
+}

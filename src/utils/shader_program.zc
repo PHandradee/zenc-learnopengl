@@ -139,6 +139,15 @@ impl ShaderProgram {
             glad::GL_FALSE,
             (f32*)value);
     }
+
+    fn setVec3(self, name: char*, value: glm::vec3) {
+        glad::glUniform3fv(
+            glad::glGetUniformLocation(self.ID, name)
+            ,1
+            , &value[0]
+        );
+
+    }
 }
 
 // RAII
