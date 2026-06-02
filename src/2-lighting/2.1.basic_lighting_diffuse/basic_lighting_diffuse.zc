@@ -290,11 +290,10 @@ import "cglm/cglm.h" as glm;
 import "../../utils/shader_program.zc";
 import "../../utils/camera.zc";
 
-
 fn framebuffer_size_callback(window: glfw::GLFWwindow*
                             , width: int, height: int );
-fn mouse_callback(window:glfw::GLFWwindow*, xpos: f32, ypos: f32);
-fn scroll_callback(window: glfw::GLFWwindow*, xoffset: f32, yoffset: f32);
+fn mouse_callback(window:glfw::GLFWwindow*, xpos: f64, ypos: f64);
+fn scroll_callback(window: glfw::GLFWwindow*, xoffset: f64, yoffset: f64);
 fn process_output(window: glfw::GLFWwindow*);
 
 // settings
@@ -342,7 +341,108 @@ fn _main() -> int {
         return -1; 
     }
 
+    glfw::glfwMakeContextCurrent(window);
+    glfw::glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfw::glfwSetCursorPosCallback(window, mouse_callback);
+    glfw::glfwSetScrollCallback(window, scroll_callback);
+
+    //tell GLFW to capture our mouse
+    glfw::glfwSetInputMode(window, glfw::GLFW_CURSOR, glfw::GLFW_CURSOR_DISABLED);
+
+    // glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if !glad::gladLoadGLLoader((glad::GLADloadproc)glfw::glfwGetProcAddress) {
+        eprintln "Failed to initialize GLAD";
+        return -1;
+    }
+
+    // configure global opengl state
+    // -----------------------------
+    glad::glEnable(glad::GL_DEPTH_TEST);
+
+    // build and compile our shader zprogram
+    // ------------------------------------
+    let lighting_shader: ShaderProgram = ShaderProgram::new(
+        "./shaders/2.lighting/2.1.basic_lighting.vs",
+        "./shaders/2.lighting/2.1.basic_lighting.fs"
+    ).unwrap();
+
+    let lighting_cube_shader: ShaderProgram = ShaderProgram::new(
+        "./shaders/2.lighting/2.1.light_cube.vs",
+        "./shaders/2.lighting/2.1.light_cube.fs"
+    ).unwrap();  
+
+    // set up vertex data (and buffer(s)) and configure vertex
+    // attributes
+    def VERTICES_SIZE = 6 * (6 * 6);
+    let vertices: f32[VERTICES_SIZE] = [
+        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+
+        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+         0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+
+        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+
+         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+
+        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
+    ];
+
+    //first, configure the cube's VAO and VBO
+    let VBO: uint;
+    defer glad::glDeleteBuffers(1, &VBO);
+
+    let cube_VAO: uint;
+    defer glad::glDeleteVertexArrays(1, &cube_VAO);
+
+    glad::glGenVertexArrays(1, &cube_VAO);
+    glad::glGenBuffers(1, &VBO);
+
+    glad::glBindBuffer(glad::GL_ARRAY_BUFFER, VBO);
+    glad::glBufferData(
+        glad::GL_ARRAY_BUFFER
+        , sizeof(vertices)
+        , vertices
+        , glad::GL_STATIC_DRAW);
+    
+
+
 }
 
+fn framebuffer_size_callback(window: glfw::GLFWwindow*
+                            , width: int, height: int ) {}
 
-
+fn mouse_callback(window:glfw::GLFWwindow*, xpos: f64, ypos: f64) {}
+fn scroll_callback(window: glfw::GLFWwindow*, xoffset: f64, yoffset: f64) {}
+fn process_output(window: glfw::GLFWwindow*) {}
